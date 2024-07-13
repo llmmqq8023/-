@@ -218,7 +218,7 @@ func main() {
 ### 定义
 
 ```text
-func name( [parameter list] ) [return_types] {
+func name( [parameter list] ) ( [return_types] ) {
    函数体
 }
 ```
@@ -434,6 +434,7 @@ func callBack(x int) int {
 ```
 
 这段代码输出：
+
 ```text
 我是回调，x：1
 我是回调，x：2
@@ -1247,6 +1248,7 @@ func printSlice(s string, x []int) {
 ```
 
 这段代码输出：
+
 ```text
 a len=5 cap=5 [0 0 0 0 0]
 b len=0 cap=5 []
@@ -1296,6 +1298,7 @@ func printSlice(s []int) {
 ```
 
 这段代码输出：
+
 ```text
 len=0 cap=0 []
 len=1 cap=1 [0]
@@ -1476,4 +1479,594 @@ func main() {
 值： 0
 值： 0 是否存在？ false
 ```
+
+## 方法
+
+​	Go 语言从设计伊始，就不支持经典的面向对象语法元素，比如类、对象、继承，等等，但 Go 语言仍保留了名为“方法（`method`）”的语法元素。在 Go 编程语言中，方法是与特定类型相关联的函数。它们允许您在自定义类型上定义行为，这个自定义类型可以是结构体（struct）或任何用户定义的类型。方法本质上是一种函数，但它们具有一个特定的接收者（receiver），也就是方法所附加到的类型。这个接收者可以是指针类型或值类型。方法与函数的区别是，函数不属于任何类型，方法属于特定的类型。
+
+### 定义
+
+方法的声明形式如下：
+
+```go 
+func (t *T或T) MethodName (参数列表) (返回值列表) {
+    // 方法体
+}
+```
+
+
+其中各部分的含义如下：
+
+* (`t *T或T`)：括号中的部分是方法的接收者，用于指定方法将附加到的类型。`t `是接收者的名称，相当于python里的`self`，`T `是接收者的类型。接收者可以是值类型（`T`）或指针类型（`*T`）。如果使用值类型作为接收者，方法操作的是接收者的副本，而指针类型允许方法修改接收者的原始值。无论` receiver` 参数的类型为 `*T` 还是 `T`，我们都把一般声明形式中的` T `叫做 receiver 参数 `t` 的基类型。要注意的是，每个方法只能有一个` receiver `参数。
+* `MethodName`：这是方法的名称，用于在调用方法时引用它。
+* `(参数列表)`：这是方法的参数列表，定义了方法可以接受的参数。如果方法不需要参数，此部分为空。
+* `(返回值列表)`：这是方法的返回值列表，定义了方法返回的结果。如果方法不返回任何值，此部分为空。
+* `方法体`：方法体包含了方法的具体实现，这里可以编写方法的功能代码。
+
+### 接收者为值或指针的区别
+
+- 若接收者为值类型，那么无论用值还是指针调用该方法，方法操作的都是对象的副本，不改变对象的值。
+- 若接收者为指针类型，那么无论用值还是指针调用该方法，方法操作的都是对象的指针，能改变对象的值。
+
+```go
+package main
+
+import (
+	"fmt"
+	"math"
+)
+
+type Vertex struct {
+	X, Y float64
+}
+
+func (v Vertex) Abs_10() float64 {
+	v.X = 10 * v.X
+	v.Y = 10 * v.Y
+	return math.Sqrt(v.X*v.X + v.Y*v.Y)
+}
+
+func (v Vertex) Abs() float64 {
+	return math.Sqrt(v.X*v.X + v.Y*v.Y)
+}
+
+func (v *Vertex) Scale(f float64) {
+	v.X = v.X * f
+	v.Y = v.Y * f
+}
+
+func main() {
+	v := Vertex{3, 4}
+	fmt.Println(v.Abs_10())
+	fmt.Println(v.Abs())
+	v.Scale(10)
+	fmt.Println(v.Abs())
+}
+```
+
+这段代码输出：
+
+```text
+50
+5
+50
+```
+
+### 方法与指针重定向
+
+####接收者是指针
+
+带指针参数的函数必须接受一个指针：
+
+```go
+var v Vertex
+ScaleFunc(v, 5)  // 编译错误！
+ScaleFunc(&v, 5) // OK
+```
+
+而接收者为指针的的方法被调用时，**接收者既能是值又能是指针**：
+
+```go
+var v Vertex
+v.Scale(5)  // OK
+p := &v
+p.Scale(10) // OK
+```
+
+对于语句 `v.Scale(5)` 来说，即便 `v` 是一个值而非指针，带指针接收者的方法也能被直接调用。 也就是说，由于 `Scale` 方法有一个指针接收者，为方便起见，Go 会将语句 `v.Scale(5)` 解释为 `(&v).Scale(5)`。
+
+```go
+package main
+
+import "fmt"
+
+type Vertex struct {
+	X, Y float64
+}
+
+func (v *Vertex) Scale(f float64) {
+	v.X = v.X * f
+	v.Y = v.Y * f
+}
+
+func ScaleFunc(v *Vertex, f float64) {
+	v.X = v.X * f
+	v.Y = v.Y * f
+}
+
+func main() {
+	v := Vertex{3, 4}
+	v.Scale(2)
+	ScaleFunc(&v, 10)
+
+	p := &Vertex{4, 3}
+	p.Scale(3)
+	ScaleFunc(p, 8)
+
+	fmt.Println(v, p)
+}
+
+```
+
+这段代码输出：
+
+```text
+{60 80} &{96 72}
+```
+
+#### 接收者是值
+
+反之也一样：
+
+接受一个值作为参数的函数必须接受一个指定类型的值：
+
+```
+var v Vertex
+fmt.Println(AbsFunc(v))  // OK
+fmt.Println(AbsFunc(&v)) // 编译错误！
+```
+
+而以值为接收者的方法被调用时，**接收者既能为值又能为指针**：
+
+```
+var v Vertex
+fmt.Println(v.Abs()) // OK
+p := &v
+fmt.Println(p.Abs()) // OK
+```
+
+这种情况下，方法调用 `p.Abs()` 会被解释为 `(*p).Abs()`。
+
+```go
+package main
+
+import (
+	"fmt"
+	"math"
+)
+
+type Vertex struct {
+	X, Y float64
+}
+
+func (v Vertex) Abs() float64 {
+	return math.Sqrt(v.X*v.X + v.Y*v.Y)
+}
+
+func AbsFunc(v Vertex) float64 {
+	return math.Sqrt(v.X*v.X + v.Y*v.Y)
+}
+
+func main() {
+	v := Vertex{3, 4}
+	fmt.Println(v.Abs())
+	fmt.Println(AbsFunc(v))
+
+	p := &Vertex{4, 3}
+	fmt.Println(p.Abs())
+	fmt.Println(AbsFunc(*p))
+}
+```
+
+##接口
+
+[参考这里](https://blog.csdn.net/qq_39445165/article/details/124181042)
+
+​	在Go语言中，接口是一种抽象的类型，定义了一个对象的行为规范，是对行为的概括与抽象，只定义规范但是不实现，由实现接口的对象去定义具体的行为规范。
+
+​	Go语言不像其他语言一样有"类"这个概念，但是可以通过结构体与接口配合使用可以实现复杂的数据类型（虽然Go语言的接口比较简陋但是同样可以实现面向对象的思想），并且需要注意的是只有当两个或者两个以上的具体类型以相同的方式处理问题的时候才需要定义接口，如果只有一种类型那么不需要编写接口，下面是Go语言接口中常见的概念：  
+
+###基本概念
+
+1. 类型在实现接口的时候不需要显式地声明实现了哪一个接口，只要是定义了对应的类型的所有方法就算是实现了这个接口，也即任何类型的方法集中只要拥有该接口"对应的全部方法"的签名就表示它实现了哪一个接口，"对应的全部方法"指的是相同名称、参数列表（不包括参数名）以及返回值的方法；
+
+2. 接口是一个或者多个方法签名的集合，即接口中定义的就是一组方法；
+
+3. 接口只有方法声明，没有实现；
+
+4. 接口可以匿名嵌入到其他接口或者结构体中；
+
+5. 对象赋值给接口的时候会发生拷贝，接口内部存储的是指向当前复制对象的指针；
+
+6. 只有当接口存储的类型和对象都为nil时，接口才等于nil；
+
+7. 接口调用不会做receiver的自动转换；之前接受者类型为值类型的时候可以使用指针类型的调用方法，反之也成立，编译器会帮我们做自动取地址的操作，但是接口调用不会；
+
+8. 接口也支持匿名字段方法；
+
+9. 接口也可以实现面向对象程序设计中的多态；
+
+10. 空接口可以作为任何类型数据的容器，可以存储任意数据类型，所以空接口的应用是非常广泛的；
+
+11. 一个类型可以实现多个接口，一个接口也可以由多个类型实现；
+
+###定义
+
+​	每一个接口由若干个方法组成，语法规则为：
+
+```go
+type 接口类型名 interface {
+	方法名1(参数列表1) 返回值列表1
+	方法名2(参数列表2) 返回值列表2
+}
+```
+
+
+并且需要注意：使用type关键字将接口定义为自定义的类型，也即设置一个接口名；**当方法名首字母是大写且这个接口类型名首字母也是大写时**，这个方法可以被接口所在的包之外的代码访问；**参数列表和返回值列表中的参数变量名可以省略**。
+
+###实现
+
+​	一个对象只要全部实现了接口中的方法，那么就实现了这个接口，也即接口就是一个需要实现的方法列表；像下面的例子，定义一个`animal`接口，接口中定义一个`sayer`方法，定义`cat`和`dog`结构体，因为接口中只有一个方法，所以给`cat`和`dog`实现`sayer()`方法就算实现了`animal`接口，实现了接口之后在`golang`中可以看到接口的标志，而且必须是实现接口中定义的全部方法才算实现当前的接口，如果在接口定义多一个方法那么`cat`和`dog`只实现了`sayer`方法就没有实现`aminal`接口：
+
+```go
+import "fmt"
+
+type animal interface {
+	// 定义一个方法
+	sayer()
+}
+
+// 定义两个结构体
+type cat struct {
+}
+
+type dog struct {
+}
+
+//给cat实现animal接口
+func (c cat) sayer() {
+	fmt.Println("喵喵喵")
+}
+
+//给dog实现animal接口
+func (d dog) sayer() {
+	fmt.Println("汪汪汪")
+}
+
+func main() {
+    
+}
+```
+
+###接口类型变量
+
+​	**接口变量能够存储所有实现了该接口的实例**，然后调用对应的方法，在上面的例子中animal接口类型的变量能够存储`cat`和`dog`类型的变量：
+
+```go
+package main
+
+import "fmt"
+
+type Animal interface {
+	// 定义一个方法
+	sayer()
+}
+
+// 定义两个结构体
+type cat struct {
+}
+
+type dog struct {
+}
+
+//给cat实现animal接口
+func (c cat) sayer() {
+	fmt.Println("喵喵喵")
+}
+
+func (d dog) sayer() {
+	fmt.Println("汪汪汪")
+}
+
+func main() {
+	// 声明一个Animal类型的变量
+	var animal Animal
+	c := cat{} // 实例化一个dog
+	d := dog{} // 实例化一个cat
+	animal= c
+	animal.sayer()
+	animal= d
+	animal.sayer()
+}
+```
+
+###值接受者与指针接受者实现接口
+
+​	使用值接受者实现接口之后，对于一个结构体来说无论是值类型还是结构体指针类型的变量那么都可以赋值给该接口变量，使用结构体指针类型接受者实现接口之后，对于一个结构体来说**只能够使用结构体指针类型**的变量赋值给当前的接口变量，如果将值类型的变量赋值给接口变量编译器会报错，还是上面的例子，我们可以将其中一个方法的接受者修改为结构体指针类型判断两者的区别，这与之前值类型调用和指针类型调用对应的方法是不一样的：
+
+```go
+package main
+
+import "fmt"
+
+type Animal interface {
+	sayer()
+}
+
+type cat struct {
+}
+
+type dog struct {
+}
+
+// 值类型接受者, 可以接受值类型与指针类型调用
+func (c cat) sayer() {
+	fmt.Println("喵喵喵")
+}
+
+// 指针类型接受者, 只能够接受指针类型调用
+func (d *dog) sayer() {
+	fmt.Println("汪汪汪")
+}
+
+func main() {
+	var animal Animal
+	c := cat{}
+	d := dog{}
+	animal = c
+	animal.sayer()
+	animal = &c
+	animal.sayer()	
+  // aminal = d 将d赋值给aminal会报错, 只能够将指针类型的变量赋值给animal(实现Animal接口的是*dog类	型不能够给animal传入dog类型, animal只能够存储*dog类型值)
+	animal = &d
+	animal.sayer()
+}
+```
+
+### 类型与接口
+
+* 一个类型可以实现多个接口，接口之间彼此之间是独立的，例如下面的例子`dog`实现了`Sayer`和`Mover`接口：
+
+```go
+package main
+
+import "fmt"
+
+// Sayer接口
+type Sayer interface {
+	say()
+}
+
+// Mover接口
+type Mover interface {
+	move()
+}
+type dog struct {
+	name string
+}
+
+func (d dog) say() {
+	fmt.Println("汪汪汪")
+}
+
+func (d dog) move() {
+	fmt.Printf("%s动起来了", d.name)
+}
+
+func main() {
+	var (
+		x Sayer
+		y Mover
+	)
+	a := dog{"xiaofei"}
+	x = a
+	x.say()
+	y = a
+	y.move()
+}
+
+```
+
+* 多个类型也可以实现同一个接口：
+
+```go
+package main
+
+import "fmt"
+
+// Sayer接口
+type Sayer interface {
+	say()
+}
+
+type dog struct {
+	name string
+}
+
+type cat struct {
+	name string
+}
+
+func (c cat) say() {
+	fmt.Println("喵喵喵")
+}
+
+func (d dog) say() {
+	fmt.Println("汪汪汪")
+}
+
+func main() {
+	var x Sayer
+	a := cat{"xiaomi"}
+	b := dog{"xiaofei"}
+	x = a
+	x.say()
+	x = b
+	b.say()
+}
+```
+
+### 接口嵌套
+
+* 类似于结构体之间的嵌套，接口之间也可以嵌套：
+
+```go
+package main
+
+import "fmt"
+
+// Sayer接口
+type Sayer interface {
+	say()
+}
+
+// Mover接口
+type Mover interface {
+	move()
+}
+
+type Animal interface {
+	// 接口嵌套
+	Sayer
+	Mover
+}
+
+// 定义一个结构体
+type cat struct {
+	name string
+}
+
+func (c cat) say() {
+	fmt.Println("喵喵喵")
+}
+
+func (c cat) move() {
+	fmt.Print(c.name, "动起来了")
+}
+
+func main() {
+	var x Animal
+	c := cat{"旺财"}
+	x = c
+	x.say()
+	x.move()
+}
+```
+
+###空接口
+
+* 空接口是指没有定义任何方法的接口，因此任何类型都实现了空接口，空接口类型的变量可以实现可以存储任意类型的变量：
+
+```go
+package main
+
+import "fmt"
+
+// Sayer接口
+type Sayer interface {
+	say()
+}
+
+// Mover接口
+type Mover interface {
+	move()
+}
+
+type Animal interface {
+	// 接口嵌套
+	Sayer
+	Mover
+}
+
+// 定义一个结构体
+type cat struct {
+	name string
+}
+
+func (c cat) say() {
+	fmt.Println("喵喵喵")
+}
+
+func (c cat) move() {
+	fmt.Print(c.name, "动起来了")
+}
+
+func main() {
+	var x Animal
+	c := cat{"旺财\n"}
+	x = c
+	x.say()
+	x.move()
+  // 定义一个空接口y
+  var y interface{}
+  a := 23
+  y = a
+  fmt.Printf("%T %v\n", y, y)
+
+  b := "helloworld"
+  y = b
+  fmt.Printf("%T %v\n", y, y)
+
+  d := true
+  y = d
+  fmt.Printf("%T %v\n", y, y)
+}
+```
+
+
+###空接口的应用：
+
+1. 作为函数的参数，==使用空接口可以接收任意形式的参数==：
+
+```go
+func print(v interface{}) {
+	fmt.Printf("%v %T\n", v, v)
+}
+```
+
+2. 作为map值的类型，==可以保存任意类型的值==
+
+```go
+// 空接口作为map值的类型
+mp := make(map[int]interface{})
+mp[0] = "xiaozhang"
+mp[1] = 2
+mp[5] = true
+fmt.Println(mp)
+```
+
+### 类型断言
+
+​	因为空接口可以存储任意类型的值，所以空接口在Go语言中的使用是非常广泛的，那么如果获取存储的具体数据呢？一个接口的值由一个具体的类型和具体类型的值两部分组成，这两部分称为接口的动态类型和动态值，要获取和判断空接口中的值可以使用类型断言，语法格式为：`x.(T)`，`x`表示类型为`interface`的变量，`T`表示断言`x`可能的类型，断言的结果返回两个参数，第一个参数为`x`转化为`T`之后的变量，第二个参数表示断言是否成功，为`true`表示断言成功，`false`表示断言失败：
+
+```go
+package main
+
+import "fmt"
+
+type edge struct {
+	to, w int
+}
+
+func main() {
+	var x interface{}
+	x = edge{2, 5}
+    // 所以在使用小根堆的时候使用heap.Pop方法弹出元素需要类型断言才可以获取空接口中结构体的字段
+	fmt.Printf("%v %v %v", x.(edge), x.(edge).to, x.(edge).w)
+}
+```
+
+
+
+
 
